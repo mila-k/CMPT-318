@@ -143,17 +143,8 @@ matrix2 <- corrplot(corrCoeffs, method="number")
 
 dayHoursAvgDf <- with(week2, week2[(wday == 1) & TimeModified >= as.POSIXlt("06:00:00", format = "%H:%M:%S") & TimeModified < as.POSIXlt("18:00:00", format = "%H:%M:%S"), ])
 dayHoursAvgDf <- subset(dayHoursAvgDf, select=c("TimeModified", "Time"))
-#nightHoursAvgDf <- with(week2, week2[(wday == 0) & (TimeModified > as.POSIXlt("18:00:00", format = "%H:%M:%S") | TimeModified <= as.POSIXlt("06:00:00", format = "%H:%M:%S")), ])
-nightHoursAvgDf_1 <- with(week2, week2[(wday == 0) & (TimeModified >= as.POSIXlt("18:00:00", format = "%H:%M:%S") & TimeModified <= as.POSIXlt("24:00:00", format = "%H:%M:%S")), ])
-nightHoursAvgDf_2 <- with(week2, week2[(wday == 0) & (TimeModified >= as.POSIXlt("0:00:00", format = "%H:%M:%S") & TimeModified < as.POSIXlt("06:00:00", format = "%H:%M:%S")), ])
-
-nightHoursAvgDf_1 <- subset(nightHoursAvgDf_1, select=c("TimeModified", "Time"))
-nightHoursAvgDf_2 <- subset(nightHoursAvgDf_2, select=c("TimeModified", "Time"))
-print(nightHoursAvgDf_1)
-print(nightHoursAvgDf_2)
-nightHoursAvgDf <- rbind(nightHoursAvgDf_1, nightHoursAvgDf_2)
-print(nightHoursAvgDf)
-
+nightHoursAvgDf <- with(week2, week2[(wday == 0) & (TimeModified < as.POSIXlt("06:00:00", format = "%H:%M:%S") | TimeModified >= as.POSIXlt("18:00:00", format = "%H:%M:%S")), ])
+nightHoursAvgDf <- subset(nightHoursAvgDf, select=c("TimeModified", "Time"))
 
 weekdayDayGlobalIntensity <- vector(length=nrow(dayHoursAvgDf))
 weekdayNightGlobalIntensity <- vector(length=nrow(nightHoursAvgDf))
@@ -178,7 +169,6 @@ for(i in 1:nrow(nightHoursAvgDf))
   weekdayNightGlobalIntensity[i] <- average
 }
 nightHoursAvgDf$weekday_average <- weekdayNightGlobalIntensity
-str(nightHoursAvgDf)
 
 # average for weekend day hours
 for(i in 1:nrow(dayHoursAvgDf)) 
@@ -201,7 +191,7 @@ nightHoursAvgDf$weekend_average <- weekendNightGlobalIntensity
 dayHoursAvgDf <- subset(dayHoursAvgDf, select = -c(TimeModified))
 nightHoursAvgDf <- subset(nightHoursAvgDf, select = -c(TimeModified))
 
-print(nightHoursAvgDf)
+
 
 # Linear Regression
 
@@ -217,60 +207,53 @@ fit <- lm(formula=weekday_average ~ Time, data=nightHoursAvgDf)
 weekday_predicted <- predict(fit, nightHoursAvgDf)
 nightHoursAvgDf = cbind(nightHoursAvgDf, weekday_predicted)
 
-print(nightHoursAvgDf)
-
 fit <- lm(formula=weekend_average ~ Time, data=nightHoursAvgDf)
 weekend_predicted <- predict(fit, nightHoursAvgDf)
 nightHoursAvgDf = cbind(nightHoursAvgDf, weekend_predicted)
 
-print(nightHoursAvgDf)
-
-nt <- 0:719
-nightHoursAvgDf$newTime<-nt
-
-
-# Plot Linear Regression
-#daytime
-ggplot(dayHoursAvgDf, aes(x=Time)) + 
-  geom_line(aes(y = weekday_predicted), color = "darkred") + 
-  geom_point(aes(y = weekday_average), color="darkred") +
-  geom_line(aes(y = weekend_predicted), color="steelblue", linetype="twodash") +
-  geom_point(aes(y = weekend_average), color="steelblue")
-
-
-#nighttime
-ggplot(nightHoursAvgDf, aes(x=newTime)) + 
-  geom_line(aes(y = weekday_predicted), color = "darkred") + 
-  geom_point(aes(y = weekday_average), color="darkred") +
-  geom_line(aes(y = weekend_predicted), color="steelblue", linetype="twodash") +
-  geom_point(aes(y = weekend_average), color="steelblue")
 
 
 
 
 
 
-weekdayDay <- with(dayHoursAvgDf, aggregate(list(weekday_average = dayHoursAvgDf$weekday_average), list(Time=tolower(Time)), mean))
-weekdayNight <- with(nightHoursAvgDf, aggregate(list(weekday_average = nightHoursAvgDf$weekday_average), list(Time=tolower(Time)), mean))
-weekendDay <- with(dayHoursAvgDf, aggregate(list(weekend_average = dayHoursAvgDf$weekend_average), list(Time=tolower(Time)), mean))
-weekendNight <- with(nightHoursAvgDf, aggregate(list(weekend_average = nightHoursAvgDf$weekend_average), list(Time=tolower(Time)), mean))
 
 
 
 
-weekdayDay$newTime<-nt
-weekdayNight$newTime<-nt
-weekendDay$newTime<-nt
-weekendNight$newTime<-nt
 
 
 
+
+#plot global intensities with linear regression
 ggplot()+
-  geom_point(data=weekdayDay, mapping=aes(x=newTime, y=weekday_average), color="red") +
-  geom_point(data=weekdayNight, mapping=aes(x=newTime, y=weekday_average), color="blue") +
-  geom_point(data=weekendDay, mapping=aes(x=newTime, y=weekend_average), color="green")+
-  geom_point(data=weekendNight, mapping=aes(x=newTime, y=weekend_average), color="orange")
+  geom_point(data=dayHoursAvgDf, mapping=aes(x=Time, y= weekday_average), color="darkred") +
+  geom_point(data=nightHoursAvgDf, mapping=aes(x=Time, y= weekday_average), color="green") +
+  geom_point(data=dayHoursAvgDf, mapping=aes(x=Time, y= weekend_average), color="steelblue") +
+  geom_point(data=nightHoursAvgDf, mapping=aes(x=Time, y= weekend_average), color="purple") +
+  geom_line(data=dayHoursAvgDf, mapping=aes(x=Time, y = weekday_predicted), color="darkred", size=1.5) +
+  geom_line(data=nightHoursAvgDf, mapping=aes(x=Time, y = weekday_predicted), color="green", size=1.5)+
+  geom_line(data=dayHoursAvgDf, mapping=aes(x=Time, y = weekend_predicted), color="steelblue", size=1.5)+
+  geom_line(data=nightHoursAvgDf, mapping=aes(x=Time, y = weekend_predicted), color="purple", size=1.5) +
+  ggtitle("Global Intensity on Weekdays and Weekends During the Day and Night (With Linear Regression Predictions)")+
+  ylab("Global Intensity")
 
+
+
+
+#plot global intensities with polynomial regression
+ggplot()+
+  geom_point(data=dayHoursAvgDf, mapping=aes(x=Time, y= weekday_average), color="darkred") +
+  geom_point(data=nightHoursAvgDf, mapping=aes(x=Time, y= weekday_average), color="green") +
+  geom_point(data=dayHoursAvgDf, mapping=aes(x=Time, y= weekend_average), color="steelblue") +
+  geom_point(data=nightHoursAvgDf, mapping=aes(x=Time, y= weekend_average), color="purple") +
+  geom_smooth(data=dayHoursAvgDf, mapping=aes(x=Time, y=weekday_average), method="lm", formula=y~poly(x,2), se=FALSE, color="darkred", size=1.5)+
+  geom_smooth(data=nightHoursAvgDf, mapping=aes(x=Time, y=weekday_average), method="lm", formula=y~poly(x,2), se=FALSE, color="green", size=1.5)+
+  geom_smooth(data=dayHoursAvgDf, mapping=aes(x=Time, y=weekend_average), method="lm", formula=y~poly(x,2), se=FALSE, color="steelblue", size=1.5)+
+  geom_smooth(data=nightHoursAvgDf, mapping=aes(x=Time, y=weekend_average), method="lm", formula=y~poly(x,2), se=FALSE, color="purple", size=1.5)+
+  ggtitle("Global Intensity on Weekdays and Weekends During the Day and Night (With Polynomial Regression Predictions)")+
+  ylab("Global Intensity")
+  
 
 
 
