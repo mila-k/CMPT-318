@@ -1,0 +1,114 @@
+## Term Project Part 1
+
+library(TTR)
+library(moments)
+library(dplyr)
+library(ggplot2)  
+library(zoo)
+library(depmixS4)
+library(fitdistrplus)
+library(logspline)
+DataDf <- (read.table("Term_Project_Dataset.txt", header = TRUE, sep = ","))
+
+
+#DataDf <- read.table("Group_Assignment_3_Dataset.txt", header = TRUE, sep = ",")
+DataDf$week_num <- strftime(as.Date(DataDf$Date, format = "%d/%m/%Y"), format = "%V")
+
+
+#linear interpolation on NA values
+DataDf$Global_intensity <- na.approx(DataDf$Global_intensity)
+DataDf$Global_active_power <- na.approx(DataDf$Global_active_power, na.rm=FALSE)
+DataDf$Global_reactive_power <- na.approx(DataDf$Global_reactive_power)
+DataDf$Voltage <- na.approx(DataDf$Voltage)
+DataDf$Sub_metering_1 <- na.approx(DataDf$Sub_metering_1)
+DataDf$Sub_metering_2 <- na.approx(DataDf$Sub_metering_3)
+DataDf$Sub_metering_3 <- na.approx(DataDf$Sub_metering_3)
+
+DataOG <- DataDf
+
+#standardize and change variables to numerical
+DataDf$Global_intensity <- as.numeric(scale(DataDf$Global_intensity))
+DataDf$Global_active_power <- as.numeric(scale(DataDf$Global_active_power))
+DataDf$Global_reactive_power <- as.numeric(scale(DataDf$Global_reactive_power))
+DataDf$Voltage <- as.numeric(scale(DataDf$Voltage))
+DataDf$Sub_metering_1 <- as.numeric(scale(DataDf$Sub_metering_1))
+DataDf$Sub_metering_2 <- as.numeric(scale(DataDf$Sub_metering_2))
+DataDf$Sub_metering_3 <- as.numeric(scale(DataDf$Sub_metering_3))
+DataDf$week_num <- scale(as.numeric(DataDf$week_num))
+
+#change date and time to numerical
+DataDf$Time <- scale(as.numeric(as.factor(DataDf$Time)))
+DataDf$Date <- scale(as.numeric(as.factor(DataDf$Date)))
+#trim the first NA value that was not interpolated by na.approx
+DataDf <- na.trim(DataDf)
+
+
+pca <- prcomp((DataDf[,3:9]))
+# 
+# 
+plot(pca$x[,1], pca$x[,2])
+# 
+pca.var <- pca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100, 1)
+barplot(pca.var.per, main="scree plot", xlab="Principal Component", ylab="Percen Variation")
+# 
+# 
+pca.data <- data.frame(Variables=rownames(pca$x),
+  X=pca$x[,1],
+  Y=pca$x[,2])
+ 
+ggplot(data=pca.data, aes(x=X, y=Y, label=Variables))+
+  geom_point(alpha = 0.3)+
+  xlab(paste("PC1 - ", pca.var.per[1], "%", sep=""))+
+  ylab(paste("PC2 - ", pca.var.per[2], "%", sep=""))+
+  theme_bw()+
+  ggtitle("PCA Graph")
+
+
+loading_scores <- pca$rotation[,1]
+power_scores <- abs(loading_scores)
+power_score_ranked <- sort(power_scores, decreasing = TRUE)
+top_10_power <- names(power_score_ranked[1:7])
+rotation <- pca$rotation[top_10_power,1]
+
+
+set.seed(1)
+testtrainsplit = sort(sample(nrow(DataDf), nrow(DataDf)*.8))
+trainDf <- as.data.frame(DataOG[testtrainsplit,])
+testDf <- DataDf[-testtrainsplit,]
+
+
+#trainDf = as.data.frame(trainDf)
+#trainDf$Global_intensity <- as.data.frame(trainDf$Global_intensity)
+mod1 <- depmix(list(trainDf$Global_intensity~1, Sub_metering_2~1, Sub_metering_3~1), data = trainDf, nstates = 10, family=list(gamma(0.6419637), multinomial(), multinomial()))
+fm <- fit(mod1)
+
+#our data cannot be poisson because our data is continuous, not discrete
+
+# descdist(trainDf$Global_intensity, discrete=FALSE)
+# gi.fit.gamma <- fitdist(trainDf$Global_intensity/1000, "gamma")
+# gi.fit.binom <- fitdist(trainDf$Global_intensity, "binom")
+# gi.fit.norm <- fitdist(trainDf$Global_intensity, "norm")
+# gi.fit.beta <- fitdist(trainDf$Global_intensity, "beta")
+# plot(gi.fit.norm)
+# plot(gi.fit.gamma)
+# summary(gi.fit.norm)
+# summary(gi.fit.gamma)
+# 
+# descdist(trainDf$Sub_metering_2, discrete=FALSE)
+# sm2.fit.norm <- fitdist(trainDf$Sub_metering_2, "norm")
+# sm2.fit.binom <- fitdist(trainDf$Sub_metering_2, "binom")
+# sm2.fit.gamma <- fitdist(trainDf$Sub_metering_2, "gamma")
+# plot(sm2.fit.norm)
+# plot(sm2.fit.gamma)
+# summary(sm2.fit.norm)
+# summary(sm2.fit.gamma)
+# 
+# descdist(trainDf$Sub_metering_3, discrete=FALSE)
+# sm3.fit.norm <- fitdist(trainDf$Sub_metering_3, "norm")
+# sm3.fit.binom <- fitdist(trainDf$Sub_metering_3, "binom")
+# sm3.fit.gamma <- fitdist(trainDf$Sub_metering_3/1000, "gamma")
+# plot(sm3.fit.norm)
+# plot(sm3.fit.gamma)
+# summary(sm3.fit.norm)
+# summary(sm3.fit.gamma)
