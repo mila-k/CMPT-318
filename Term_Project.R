@@ -6,7 +6,7 @@ library(stats)
 library(factoextra)
 library(depmixS4)
 
-#load("termProject.RData")
+load("Term_Project.RData")
 
 DataDf <- read.table("Term_Project_Dataset.txt", header = TRUE, sep = ",")
 
@@ -41,9 +41,11 @@ fviz_eig(TrainPCA, geom="bar", addlabels=T, width=0.5) +
 fviz_pca_var(TrainPCA,
              col.var = "contrib", # Color by contributions to the PC
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE) +     # Avoid text overlapping
-            xlab("PC1") +
-            ylab("PC2")
+             repel = TRUE) +    
+  xlab("PC1") +
+  ylab("PC2") +
+  theme(plot.title = element_text(hjust = 0.5))
+
 
 
 
@@ -51,30 +53,40 @@ fviz_pca_var(TrainPCA,
 
 ######### Part 2 #########
 
+
+
 # Divide data into weeks to find time window
 TrainDf$week_num <- strftime(as.Date(TrainDf$Date, format = "%d/%m/%Y"), format = "%V")
 TrainDf$year <- strftime(as.Date(TrainDf$Date, format = "%d/%m/%Y"), format = "%Y")
 WeeksDf <- data.frame(matrix(nrow = 10080, ncol = 0))
+WeeksDf2 <- data.frame(matrix(nrow = 10080, ncol = 0))
 for (i in 1:52) 
 {
   week <- subset(TrainDf, (TrainDf$week_num == i | TrainDf$week_num == paste0("0", i)) & TrainDf$year == "2007" & TrainDf$Date != "31/12/2007")
-  WeeksDf <- cbind(WeeksDf, week$Global_intensity)
+  WeeksDf <- cbind(WeeksDf, week$Global_active_power)
   colnames(WeeksDf)[i] <- paste0("week_", i)
 }
-WeeksDf$Average <- rowMeans(WeeksDf)
+for (i in 1:52) 
+{
+  week <- subset(TrainDf, (TrainDf$week_num == i | TrainDf$week_num == paste0("0", i)) & TrainDf$year == "2008" & TrainDf$Date != "31/12/2008" & TrainDf$Date != "30/12/2008")
+  WeeksDf2 <- cbind(WeeksDf2, week$Global_active_power)
+  colnames(WeeksDf2)[i] <- paste0("week_", i)
+}
 WeeksDf$Datetime <- with(TrainDf, as.POSIXct(paste(Date, Time), format="%d/%m/%Y %H:%M:%S"))[21997:32076]
-
-# plot averages to find time window
-ggplot(WeeksDf[1440:2880, ]) +
-  geom_line(aes(x = Datetime, y = Average, color="Average"), linewidth=0.5) + 
-  ggtitle("Average Global Intensity") +
-  theme(plot.title = element_text(hjust = 0.5))
+WeeksDf2$Datetime <- with(TrainDf, as.POSIXct(paste(Date, Time), format="%d/%m/%Y %H:%M:%S"))[21997:32076]
 
 # plot individual weeks to find time window
 ggplot(WeeksDf[1440:2880, ]) +
   geom_line(aes(x = Datetime, y= week_30, color="Average"), linewidth=0.5) + # Choose Tuesday 18-21
-  labs(y="Global_Intensity") +
-  ggtitle("Global Intensity for Week 2") +
+  labs(y="Global Active Power") +
+  ggtitle("Global Active Power for Week 30 (2007)") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# plot individual weeks to find time window
+ggplot(WeeksDf2[1440:2880, ]) +
+  geom_line(aes(x = Datetime, y= week_25, color="Average"), linewidth=0.5) + # Choose Tuesday 18-21
+  labs(y="Global Active Power") +
+  ggtitle("Global Active Power for Week 25 (2008)") +
   theme(plot.title = element_text(hjust = 0.5))
 
 
@@ -125,46 +137,61 @@ ggplot(NULL, aes(x=(4:24))) +
                                      "LogLik"="steelblue")) 
 
 
+
+
 # Calculate the log-likelihood of the test data for the selected models
 
 test_vector <- rep(180, 30)
 
-# 4 states
-params_4states <- getpars(fit_list[[4]])
-modTest_4states <- depmix(list(Global_active_power~1, Global_intensity~1), 
-                           data=TestDf_window, nstates = 4, ntimes = test_vector, 
-                           family=list(gaussian(), gaussian())) 
-modTest_4states <- setpars(modTest_4states, params_4states)
-test_loglikelihood_4states <- forwardbackward(modTest_4states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
 
-# 8 states
-params_8states <- getpars(fit_list[[8]])
-modTest_8states <- depmix(list(Global_active_power~1, Global_intensity~1), 
-                           data=TestDf_window, nstates = 8, ntimes = test_vector, 
+# 14 states
+params_14states <- getpars(fit_list[[14]])
+modTest_14states <- depmix(list(Global_active_power~1, Global_intensity~1), 
+                           data=TestDf_window, nstates = 14, ntimes = test_vector, 
                            family=list(gaussian(), gaussian())) 
-modTest_8states <- setpars(modTest_8states, params_8states)
-test_loglikelihood_8states <- forwardbackward(modTest_8states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
+modTest_14states <- setpars(modTest_14states, params_14states)
+test_loglikelihood_14states <- forwardbackward(modTest_14states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
 
-# 10 states
-params_10states <- getpars(fit_list[[10]])
-modTest_10states <- depmix(list(Global_active_power~1, Global_intensity~1), 
-                   data=TestDf_window, nstates = 10, ntimes = test_vector, 
-                   family=list(gaussian(), gaussian())) 
-modTest_10states <- setpars(modTest_10states, params_10states)
-test_loglikelihood_10states <- forwardbackward(modTest_10states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
+# 16 states
+params_16states <- getpars(fit_list[[16]])
+modTest_16states <- depmix(list(Global_active_power~1, Global_intensity~1), 
+                           data=TestDf_window, nstates = 16, ntimes = test_vector, 
+                           family=list(gaussian(), gaussian())) 
+modTest_16states <- setpars(modTest_16states, params_16states)
+test_loglikelihood_16states <- forwardbackward(modTest_16states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
+
+# 18 states
+params_18states <- getpars(fit_list[[18]])
+modTest_18states <- depmix(list(Global_active_power~1, Global_intensity~1), 
+                           data=TestDf_window, nstates = 18, ntimes = test_vector, 
+                           family=list(gaussian(), gaussian())) 
+modTest_18states <- setpars(modTest_18states, params_18states)
+test_loglikelihood_18states <- forwardbackward(modTest_18states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
+
+# 20 states
+params_20states <- getpars(fit_list[[20]])
+modTest_20states <- depmix(list(Global_active_power~1, Global_intensity~1), 
+                           data=TestDf_window, nstates = 20, ntimes = test_vector, 
+                           family=list(gaussian(), gaussian())) 
+modTest_20states <- setpars(modTest_20states, params_20states)
+test_loglikelihood_20states <- forwardbackward(modTest_20states, TestDf_window, return.all=TRUE, useC=FALSE)$logLike
+
 
 
 # normalize the loglikelihood
 logLik_train_normalized <- logLik_train / nrow(TrainDf_window)
-test_loglikelihood_4states_normalized <- test_loglikelihood_4states / nrow(TestDf_window)
-test_loglikelihood_8states_normalized <- test_loglikelihood_8states / nrow(TestDf_window)
-test_loglikelihood_10states_normalized <- test_loglikelihood_10states / nrow(TestDf_window)
+test_loglikelihood_14states_normalized <- test_loglikelihood_14states / nrow(TestDf_window)
+test_loglikelihood_16states_normalized <- test_loglikelihood_16states / nrow(TestDf_window)
+test_loglikelihood_18states_normalized <- test_loglikelihood_18states / nrow(TestDf_window)
+test_loglikelihood_20states_normalized <- test_loglikelihood_20states / nrow(TestDf_window)
+
 
 ggplot(NULL, aes(x=(4:24))) + 
   geom_line(data = HMM_train, aes(x = seq(4,24,2), y = logLik_train_normalized, colour = "Train logLik")) + 
-  geom_point(aes(x = 4, y = test_loglikelihood_4states_normalized, colour="Test logLik")) +     # underfit
-  geom_point(aes(x = 8, y = test_loglikelihood_8states_normalized, colour="Test logLik")) + 
-  geom_point(aes(x = 10, y = test_loglikelihood_10states_normalized, colour="Test logLik")) +   # overfit
+  geom_point(aes(x = 14, y = test_loglikelihood_14states_normalized, colour="Test logLik")) + 
+  geom_point(aes(x = 16, y = test_loglikelihood_16states_normalized, colour="Test logLik")) +
+  geom_point(aes(x = 18, y = test_loglikelihood_18states_normalized, colour="Test logLik")) +
+  geom_point(aes(x = 20, y = test_loglikelihood_20states_normalized, colour="Test logLik")) +
   labs(x="nstates", y="values") +
   ggtitle("Train LogLik and Test LogLik comparison for n states of HMM") +
   theme(plot.title = element_text(hjust = 0.5)) +
@@ -172,7 +199,10 @@ ggplot(NULL, aes(x=(4:24))) +
                                      "Test logLik"="steelblue")) 
 
 
+
+
 ######### Part 3 #########
+
 
 DataWithAnomaliesDf1 <- read.table("Data_with_Anomalies/Dataset_with_Anomalies_1.txt", header = TRUE, sep = ",")
 DataWithAnomaliesDf2 <- read.table("Data_with_Anomalies/Dataset_with_Anomalies_2.txt", header = TRUE, sep = ",")
@@ -203,26 +233,26 @@ DataWithAnomaliesDf3 <- subset(DataWithAnomaliesDf3, DataWithAnomaliesDf3$weekda
 
 
 anomaly_data_vector = rep(180, 52)
-anomaly_data_params <- getpars(modTest_10states)
+anomaly_data_params <- getpars(modTest_16states)
 
 # compute the log-likelihood for the data with anomalies
 # Data with Anomalies 1
 modAnomalyData1 <- depmix(list(Global_active_power~1, Global_intensity~1), 
-                          data=DataWithAnomaliesDf1, nstates = 10, ntimes = anomaly_data_vector, 
+                          data=DataWithAnomaliesDf1, nstates = 16, ntimes = anomaly_data_vector, 
                           family=list(gaussian(), gaussian())) 
 modAnomalyData1 <- setpars(modAnomalyData1, anomaly_data_params)
 AnomalyData_loglikelihood1 <- forwardbackward(modAnomalyData1, DataWithAnomaliesDf1, return.all=TRUE, useC=FALSE)$logLike
 
 # Data with Anomalies 2
 modAnomalyData2 <- depmix(list(Global_active_power~1, Global_intensity~1), 
-                          data=DataWithAnomaliesDf2, nstates = 10, ntimes = anomaly_data_vector, 
+                          data=DataWithAnomaliesDf2, nstates = 16, ntimes = anomaly_data_vector, 
                           family=list(gaussian(), gaussian())) 
 modAnomalyData2 <- setpars(modAnomalyData2, anomaly_data_params)
 AnomalyData_loglikelihood2 <- forwardbackward(modAnomalyData2, DataWithAnomaliesDf2, return.all=TRUE, useC=FALSE)$logLike
 
 # Data with Anomalies 3
 modAnomalyData3 <- depmix(list(Global_active_power~1, Global_intensity~1), 
-                          data=DataWithAnomaliesDf3, nstates = 10, ntimes = anomaly_data_vector, 
+                          data=DataWithAnomaliesDf3, nstates = 16, ntimes = anomaly_data_vector, 
                           family=list(gaussian(), gaussian())) 
 modAnomalyData3 <- setpars(modAnomalyData3, anomaly_data_params)
 AnomalyData_loglikelihood3 <- forwardbackward(modAnomalyData3, DataWithAnomaliesDf3, return.all=TRUE, useC=FALSE)$logLike
